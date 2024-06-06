@@ -1,4 +1,5 @@
 mod cfg;
+mod platform;
 
 use tao::{
     event_loop::{ControlFlow, EventLoop},
@@ -11,15 +12,6 @@ use tray_icon::{
 };
 use wry::WebViewBuilder;
 
-#[cfg(target_os = "windows")]
-use tao::platform::windows::WindowExtWindows;
-#[cfg(target_os = "windows")]
-use windows::{
-    Win32::Foundation::HWND,
-    Win32::UI::WindowsAndMessaging::{SetWindowLongW, SetWindowPos, GWL_EXSTYLE, HWND_BOTTOM, SWP_NOMOVE, SWP_NOSIZE, SWP_NOACTIVATE},
-    Win32::UI::WindowsAndMessaging::{WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT},
-};
-
 fn main() {
     let config = cfg::Config::get("paperplex.toml");
 
@@ -31,8 +23,8 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_decorations(false)
-        .with_transparent(true)
-        .with_always_on_bottom(true)
+        // .with_transparent(true)
+        // .with_always_on_bottom(true)
         .with_position(tao::dpi::LogicalPosition::new(0, 0))
         .with_maximized(true)
         .build(&event_loop).unwrap();
@@ -40,25 +32,6 @@ fn main() {
     let monitor = window.primary_monitor().unwrap();
     window.set_inner_size(monitor.size());
     window.set_maximized(true);
-
-    #[cfg(target_os = "windows")]
-    {
-        let hwnd = HWND(window.hwnd() as isize);
-
-        unsafe {
-            let ex_style = WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
-            SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style.0 as i32);
-            SetWindowPos(
-                hwnd,
-                HWND_BOTTOM,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-            ).unwrap();
-        }
-    }
 
     let tray_menu = Menu::new();
     let quit_btn = MenuItem::new("Quit", true, None);
@@ -76,6 +49,9 @@ fn main() {
     let _webview = builder
         .with_url(config.url)
         .build().unwrap();
+
+    #[cfg(target_os = "windows")]
+    platform::setup_window_win(&window);
     
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(
